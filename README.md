@@ -5,6 +5,8 @@
 [![Python](https://img.shields.io/badge/Python-3.8%2B-blue?style=flat-square&logo=python)](https://python.org)
 [![Streamlit](https://img.shields.io/badge/Streamlit-1.28%2B-red?style=flat-square&logo=streamlit)](https://streamlit.io)
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
+![LightGBM](https://img.shields.io/badge/Model-LightGBM-green)
+![Status](https://img.shields.io/badge/Status-Active-success)
 
 **A professional web application for Expected Goals (xG) prediction and football shot analysis**
 
