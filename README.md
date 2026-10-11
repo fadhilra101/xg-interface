@@ -12,7 +12,17 @@
 
 *Transform your football shot data into actionable insights with machine learning*
 
+🌐 **Live Demo:** https://xg-interface.streamlit.app/
+
 </div>
+
+---
+
+## 🌐 Live Deployment
+
+- **Streamlit Cloud:** https://xg-interface.streamlit.app/
+- **GitHub Repository:** https://github.com/fadhilra101/xg-interface
+- **Deployment Notes:** see [DEPLOYMENT.md](DEPLOYMENT.md)
 
 ---
 
