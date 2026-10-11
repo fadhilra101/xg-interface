@@ -164,7 +164,7 @@ def main():
     
     # Check if model exists first
     model_available = create_dummy_model_if_not_exists(lang)
-    
+
     if not model_available:
         # Model not found - show language switcher and help
         render_language_switcher()

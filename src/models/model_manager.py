@@ -30,7 +30,6 @@ def check_model_exists():
     exists = os.path.exists(MODEL_FILE)
     return exists, full_path
 
-
 def build_fallback_model(random_state: int = 42):
     """
     Build a lightweight fallback model so the app remains deployable
@@ -100,7 +99,6 @@ def build_fallback_model(random_state: int = 42):
     )
     fallback_model.fit(processed[FEATURE_NAMES], y)
     return fallback_model
-
 
 def show_model_not_found_message(lang='en'):
     """
