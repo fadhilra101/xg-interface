@@ -6,7 +6,6 @@ Model management utilities for the xG prediction application.
 
 import os
 import streamlit as st
-import numpy as np
 import pandas as pd
 import joblib
 from sklearn.model_selection import train_test_split
@@ -30,75 +29,6 @@ def check_model_exists():
     exists = os.path.exists(MODEL_FILE)
     return exists, full_path
 
-def build_fallback_model(random_state: int = 42):
-    """
-    Build a lightweight fallback model so the app remains deployable
-    even when the trained xG model file is unavailable.
-
-    The fallback model is intentionally simple and deterministic. It is
-    only meant to keep the Streamlit app usable for demos and cloud
-    deployment checks.
-    """
-    from ..utils.constants import FEATURE_NAMES
-
-    rng = np.random.default_rng(random_state)
-    n_samples = 1500
-
-    X = pd.DataFrame({
-        'minute': rng.integers(0, 121, size=n_samples),
-        'second': rng.integers(0, 60, size=n_samples),
-        'period': rng.integers(1, 3, size=n_samples),
-        'play_pattern': rng.choice([1, 2, 3, 4, 6, 7, 9], size=n_samples),
-        'position': rng.choice([23, 25, 19, 17, 21, 12, 16], size=n_samples),
-        'shot_technique': rng.choice([93, 95, 91, 90, 92, 94, 89], size=n_samples),
-        'shot_body_part': rng.choice([40, 38, 37, -1], size=n_samples),
-        'shot_type': rng.choice([87, 62, 88, 61, -1], size=n_samples),
-        'shot_open_goal': rng.integers(0, 2, size=n_samples),
-        'shot_one_on_one': rng.integers(0, 2, size=n_samples),
-        'shot_aerial_won': rng.integers(0, 2, size=n_samples),
-        'shot_first_time': rng.integers(0, 2, size=n_samples),
-        'shot_key_pass': rng.integers(0, 2, size=n_samples),
-        'under_pressure': rng.integers(0, 2, size=n_samples),
-        'start_x': rng.uniform(0, 120, size=n_samples),
-        'start_y': rng.uniform(0, 80, size=n_samples),
-        'type_before': rng.choice([30, 43, 14, 2, 10, 38], size=n_samples),
-    })
-
-    # Reuse the normal preprocessing so the fallback model matches the
-    # same feature engineering as the production model.
-    processed = preprocess_shot_data(X)
-
-    logits = (
-        -3.0
-        + 0.05 * (120 - processed['start_x'])
-        - 0.03 * processed['distance_to_goal']
-        + 1.8 * processed['shot_open_goal']
-        + 0.9 * processed['shot_one_on_one']
-        + 0.5 * processed['shot_key_pass']
-        - 0.6 * processed['under_pressure']
-        + 0.35 * processed['shot_first_time']
-        + 0.25 * (processed['shot_type'] == 88).astype(int)
-        + 0.20 * (processed['shot_body_part'] == 37).astype(int)
-        + rng.normal(0, 0.35, size=n_samples)
-    )
-    probabilities = 1 / (1 + np.exp(-logits))
-    y = rng.binomial(1, probabilities)
-
-    preprocessor = ColumnTransformer(
-        transformers=[
-            ('cat', OneHotEncoder(handle_unknown='ignore'), CATEGORICAL_FEATURES),
-        ],
-        remainder='passthrough',
-    )
-
-    fallback_model = Pipeline(
-        steps=[
-            ('preprocessor', preprocessor),
-            ('classifier', LogisticRegression(max_iter=1000, random_state=random_state)),
-        ]
-    )
-    fallback_model.fit(processed[FEATURE_NAMES], y)
-    return fallback_model
 
 def show_model_not_found_message(lang='en'):
     """
@@ -198,26 +128,13 @@ def show_model_not_found_message(lang='en'):
 
 def create_dummy_model_if_not_exists(lang='en'):
     """
-    Checks if the model file exists.
-
-    For cloud deployment, the app now falls back to a built-in demo
-    model instead of blocking the UI when the trained model file is not
-    available.
+    Checks if the model file exists. If not, shows instructions
+    instead of creating a dummy model.
     
     Args:
         lang: Language code ('en' or 'id')
     """
-    model_exists, _ = check_model_exists()
-
-    if not model_exists:
-        message = (
-            "Model file not found. Using a built-in demo model so the app can still run on Streamlit Cloud."
-            if lang == 'en'
-            else "File model tidak ditemukan. Aplikasi memakai model demo bawaan agar tetap bisa berjalan di Streamlit Cloud."
-        )
-        st.info(message)
-
-    return True
+    return show_model_not_found_message(lang)
 
 
 @st.cache_resource
@@ -226,37 +143,37 @@ def load_model():
     Loads the pre-trained model from the joblib file.
     
     Returns:
-        Trained model pipeline, or a built-in fallback model if the
-        serialized model is unavailable.
+        Trained model pipeline or None if loading fails
     """
     try:
-        if os.path.exists(MODEL_FILE):
-            model = joblib.load(MODEL_FILE)
-            st.session_state.using_fallback_model = False
-            return model
-    except Exception as exc:
-        st.warning(f"Could not load trained model from {MODEL_FILE}. Using fallback model instead. Details: {exc}")
-
-    st.session_state.using_fallback_model = True
-    return build_fallback_model()
+        model = joblib.load(MODEL_FILE)
+        return model
+    except FileNotFoundError:
+        st.error(f"Model file not found: {MODEL_FILE}. Please ensure it's in the correct directory.")
+        return None
 
 
 def safe_load_model():
     """
     Safely loads the model with proper error handling.
-    Returns a trained model if available, otherwise a fallback demo model.
+    Returns model if successful, None if failed, and sets appropriate session state.
     """
     try:
-        model = load_model()
-
+        if not os.path.exists(MODEL_FILE):
+            if 'model_missing_mid_work' not in st.session_state:
+                st.session_state.model_missing_mid_work = True
+            return None
+            
+        model = joblib.load(MODEL_FILE)
+        # Model loaded successfully, clear any missing flag
         if 'model_missing_mid_work' in st.session_state:
             del st.session_state.model_missing_mid_work
-
         return model
     except Exception as e:
         st.error(f"Error loading model: {e}")
-        st.session_state.using_fallback_model = True
-        return build_fallback_model()
+        if 'model_missing_mid_work' not in st.session_state:
+            st.session_state.model_missing_mid_work = True
+        return None
 
 
 def check_model_during_work():

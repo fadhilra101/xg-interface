@@ -164,7 +164,14 @@ def main():
     
     # Check if model exists first
     model_available = create_dummy_model_if_not_exists(lang)
-
+    
+    # Check if we're in the middle of work and model went missing
+    if 'model_missing_mid_work' in st.session_state and st.session_state.model_missing_mid_work:
+        render_language_switcher()
+        render_author_info()
+        show_model_missing_during_work(lang)
+        return
+    
     if not model_available:
         # Model not found - show language switcher and help
         render_language_switcher()
@@ -189,13 +196,6 @@ def main():
             st.sidebar.markdown("---")
             st.sidebar.error(get_translation("model_load_error", lang))
         return
-
-    if st.session_state.get("using_fallback_model", False):
-        st.warning(
-            "⚠️ Running with the built-in demo model because xg_model.joblib was not loaded. Predictions are for deployment/demo only."
-            if lang == "en"
-            else "⚠️ Aplikasi berjalan dengan model demo bawaan karena xg_model.joblib tidak termuat. Prediksi hanya untuk demo/deployment."
-        )
     
     # Page selection (when model is available) - Custom Shot as main page
     page_options = [
